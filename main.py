@@ -23,9 +23,9 @@ class FinancialStatement(Base):
 def convert_to_float(value):
     if isinstance(value, str):
         value = value.replace(',', '')
-        if re.match(r'^\(.*\)$', value):  # Menangani nilai dalam tanda kurung seperti "(123)"
+        if re.match(r'^\(.*\)$', value):
             value = value.strip('()')
-            value = f"-{value}"  # Negasikan nilai
+            value = f"-{value}"
     try:
         return float(value)
     except ValueError:
@@ -40,13 +40,9 @@ def extract_notes_from_pdf(pdf_path):
             if page_text:
                 text += page_text
 
-    # Debug: Pastikan seluruh teks diekstraksi dengan benar
     print(f"Extracted Text from PDF (First 1000 chars): {text[:1000]}")
     
-    # Regex untuk menemukan catatan yang relevan
     notes = re.findall(r'(?:Catatan|Note)\s*(\d+)', text, re.IGNORECASE)
-
-    # Debug: Pastikan notes yang diekstraksi dari PDF
     print(f"Extracted Notes: {notes}")
 
     return notes
@@ -54,40 +50,38 @@ def extract_notes_from_pdf(pdf_path):
 # Fungsi untuk mengambil nama entitas dari sheet "1000000"
 def extract_emitent_name(excel_path):
     xls = pd.ExcelFile(excel_path)
-    print(f"Available sheets: {xls.sheet_names}")  # Debug: Cek sheet yang tersedia
+    print(f"Available sheets: {xls.sheet_names}")
     
     entitas_df = pd.read_excel(xls, sheet_name="1000000", header=None)
-    print(f"First rows of '1000000':\n{entitas_df.head()}")  # Debug: Cek struktur data
+    print(f"First rows of '1000000':\n{entitas_df.head()}")
 
-    # Menemukan baris yang berisi "Nama entitas" dan mengambil nilai pada kolom berikutnya
     emitent_name = entitas_df[entitas_df.iloc[:, 0] == "Nama entitas"].iloc[0, 1]
-    print(f"Emitent Name: {emitent_name}")  # Debug: Cek nama entitas
+    print(f"Emitent Name: {emitent_name}")
     return emitent_name
 
 # Fungsi untuk mengekstrak dan memasukkan data Laba Rugi
 def extract_and_insert_laba_rugi(excel_path, pdf_path, session, emitent_name):
     xls = pd.ExcelFile(excel_path)
     laba_rugi_df = pd.read_excel(xls, sheet_name="1311000", header=1)
-    print(f"Laba Rugi Data (First rows):\n{laba_rugi_df.head()}")  # Debug: Cek struktur data
+    print(f"Laba Rugi Data (First rows):\n{laba_rugi_df.head()}")
 
     laba_rugi_df = laba_rugi_df[['Unnamed: 0', 'Unnamed: 1', 'Unnamed: 2', 'Unnamed: 3']].dropna()
     laba_rugi_df.columns = ['category', 'current_year', 'prior_year', 'statement_profit_or_loss']
     laba_rugi_df['current_year'] = laba_rugi_df['current_year'].apply(convert_to_float)
     laba_rugi_df['prior_year'] = laba_rugi_df['prior_year'].apply(convert_to_float)
 
-    # Ambil catatan dari PDF
     laba_rugi_notes = extract_notes_from_pdf(pdf_path)
 
     for idx, row in laba_rugi_df.iterrows():
         note_number = laba_rugi_notes[idx] if idx < len(laba_rugi_notes) else None
-        print(f"Inserting: Item: {row['category']}, Note: {note_number}")  # Debug
+        print(f"Inserting: Item: {row['category']}, Note: {note_number}")
 
         session.add(FinancialStatement(
             emitent=emitent_name,
             grup_lk='Laba Rugi',
             item=row['category'] if row['category'] else "N/A",
             value=int(row['current_year']) if row['current_year'] else 0,
-            quarter="Q1",
+            quarter="Q4",
             notes=note_number
         ))
 
@@ -95,7 +89,7 @@ def extract_and_insert_laba_rugi(excel_path, pdf_path, session, emitent_name):
 def extract_and_insert_arus_kas(excel_path, pdf_path, session, emitent_name):
     xls = pd.ExcelFile(excel_path)
     arus_kas_df = pd.read_excel(xls, sheet_name="1510000", header=1)
-    print(f"Arus Kas Data (First rows):\n{arus_kas_df.head()}")  # Debug
+    print(f"Arus Kas Data (First rows):\n{arus_kas_df.head()}")
 
     arus_kas_df = arus_kas_df[['Unnamed: 0', 'Unnamed: 1', 'Unnamed: 2', 'Unnamed: 3']].dropna()
     arus_kas_df.columns = ['category', 'current_year_instant', 'prior_year_duration', 'statement_cash_flow']
@@ -106,14 +100,14 @@ def extract_and_insert_arus_kas(excel_path, pdf_path, session, emitent_name):
 
     for idx, row in arus_kas_df.iterrows():
         note_number = arus_kas_notes[idx] if idx < len(arus_kas_notes) else None
-        print(f"Inserting: Item: {row['category']}, Note: {note_number}")  # Debug
+        print(f"Inserting: Item: {row['category']}, Note: {note_number}")
 
         session.add(FinancialStatement(
             emitent=emitent_name,
             grup_lk='Arus Kas',
             item=row['category'] if row['category'] else "N/A",
             value=int(row['current_year_instant']) if row['current_year_instant'] else 0,
-            quarter="Q1",
+            quarter="Q4",
             notes=note_number
         ))
 
@@ -121,7 +115,7 @@ def extract_and_insert_arus_kas(excel_path, pdf_path, session, emitent_name):
 def extract_and_insert_posisi_keuangan(excel_path, session, emitent_name):
     xls = pd.ExcelFile(excel_path)
     posisi_keuangan_df = pd.read_excel(xls, sheet_name="1210000", header=1)
-    print(f"Posisi Keuangan Data (First rows):\n{posisi_keuangan_df.head()}")  # Debug
+    print(f"Posisi Keuangan Data (First rows):\n{posisi_keuangan_df.head()}")
 
     posisi_keuangan_df = posisi_keuangan_df[['Unnamed: 0', 'Unnamed: 1', 'Unnamed: 2', 'Unnamed: 3']].dropna()
     posisi_keuangan_df.columns = ['category', 'current_year', 'prior_year', 'statement_position']
@@ -134,23 +128,20 @@ def extract_and_insert_posisi_keuangan(excel_path, session, emitent_name):
             grup_lk='Posisi Keuangan',
             item=row['category'] if row['category'] else "N/A",
             value=int(row['current_year']) if row['current_year'] else 0,
-            quarter="Q1",
+            quarter="Q4",
             notes=None
         ))
 
-# Fungsi utama
 def main():
     excel_path = r"data\FinancialStatement-2023-Tahunan-AMMS.xlsx"
     pdf_path = r"data\PT Agung Menjangan Mas Tbk 31 Des 2023 (1).pdf"
-    db_url = 'mysql+pymysql://root:@localhost:3307/financial'
+    db_url = 'mysql+pymysql://root:@localhost:3307/financialTest'
 
-    # Koneksi database
-    engine = create_engine("mysql+pymysql://root:@localhost:3307/financial")
+    engine = create_engine('mysql+pymysql://root:@localhost:3307/financialTest')
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    # Ambil nama entitas dari sheet 1000000
     emitent_name = extract_emitent_name(excel_path)
 
     try:
